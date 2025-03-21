@@ -1,0 +1,124 @@
+import os
+import random
+import threading
+from datetime import datetime
+
+symbol = "qwertyuiopasdfghjkl;'zxcvbnm,./QWERTYUIOPASDFGHJKL:ZXCVBNM<>?!@#$%^&*1234567890"
+
+file_lock = threading.Lock()
+
+def gen(length):
+    return ''.join(random.choice(symbol) for _ in range(length))
+
+def choose_password(username):
+    while True:
+        print("Выберите сложность пароля")
+        print("1.Лёгкий")
+        print("2.Средний")
+        print("3.Тяжёлый")
+        print("4. Свои настройки")
+        print("5. Выйти")
+        choice = input()
+
+        if choice == '1':
+            password = gen(5)
+            print(f"Сгенерированный пароль: {password}")
+            log_action(username, password)
+        elif choice == '2':
+            password = gen(8)
+            print(f"Сгенерированный пароль: {password}")
+            log_action(username, password)
+        elif choice == '3':
+            password = gen(12)
+            print(f"Сгенерированный пароль: {password}")
+            log_action(username, password)
+        elif choice == '4':
+            length = int(input("Введите длину пароля "))
+            password = gen(length)
+            print(f"Сгенерированный пароль: {password}")
+            log_action(username, password)
+        elif choice == '5':
+            break
+        else:
+            print("Некорректный выбор. Попробуйте снова.")
+
+def reg():
+    username = input("Введите имя пользователя: ")
+
+    if os.path.exists("users.txt"):
+        with open("users.txt", "r") as file:
+            for line in file:
+                if line.split("|")[0] == username:
+                    print("Пользователь уже существует.")
+                    return
+
+    password = input("Придумайте пароль: ")
+    print("Пользователь успешно зарегистрирован.")
+
+    write_thread = threading.Thread(target=write_to_users_file, args=(username, password))
+    write_thread.start()
+    write_thread.join()
+
+    log_action(username, "Зарегистрирован новый пользователь")
+
+def write_to_users_file(username, password):
+    with file_lock:
+        with open("users.txt", "a") as file:
+            file.write(f"{username}|{password}\n")
+
+def log():
+    username = input("Введите имя пользователя: ")
+    password = input("Введите пароль: ")
+
+    if not os.path.exists("users.txt"):
+        print("Пользователь не найден.")
+        return None
+
+    with open("users.txt", "r") as file:
+        for line in file:
+            stored_username, stored_password = line.strip().split("|")
+            if stored_username == username and stored_password == password:
+                log_action(username, "Успешная авторизация")
+                return username
+
+    print("Неверное имя пользователя или пароль.")
+    log_action(username, "Неудачная попытка авторизации")
+    return None
+
+def log_action(username, action):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    write_thread = threading.Thread(target=write_to_log_file, args=(username, action, timestamp))
+    write_thread.start()
+    write_thread.join()
+
+def write_to_log_file(username, action, timestamp):
+    with file_lock:
+        with open("log.txt", "a") as file:
+            file.write(f"{timestamp} | {username} | {action}\n")
+
+def main():
+    while True:
+        print("Главное меню")
+        print("1. Регистрация")
+        print("2. Авторизация")
+        print("3. Выход")
+        choice = input()
+
+        if choice == "1":
+            reg_thread = threading.Thread(target=reg)
+            reg_thread.start()
+            reg_thread.join()
+
+        elif choice == "2":
+            username = log()
+            if username:
+                choose_password(username)
+
+        elif choice == "3":
+            break
+        else:
+            print("Неверный выбор. Попробуйте снова.")
+
+if __name__ == "__main__":
+    main()
